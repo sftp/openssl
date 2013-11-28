@@ -9,6 +9,9 @@
  **********************************************************************/ 
 #include <string.h>
 #include "gost89.h"
+
+#define ROTL32(x, n) ((x) << (n) | (x) >> (32 - (n)))
+
 /* Substitution blocks from RFC 4357 
    
    Note: our implementation of gost 28147-89 algorithm 
@@ -120,11 +123,11 @@ static void kboxinit(gost_ctx *c, const gost_subst_block *b)
 	
 	for (i = 0; i < 256; i++)
 		{
-		c->k87[i] = (b->k8[i>>4] <<4 | b->k7 [i &15])<<24;
-		c->k65[i] = (b->k6[i>>4] << 4 | b->k5 [i &15])<<16;
-		c->k43[i] = (b->k4[i>>4] <<4  | b->k3 [i &15])<<8;
-		c->k21[i] = b->k2[i>>4] <<4  | b->k1 [i &15];
-
+		/* Shift and rotate left 11 bits */
+		c->k87[i] = ROTL32(b->k8[i>>4] << 4 | b->k7[i&15],  3);
+		c->k65[i] = ROTL32(b->k6[i>>4] << 4 | b->k5[i&15], 27);
+		c->k43[i] = ROTL32(b->k4[i>>4] << 4 | b->k3[i&15], 19);
+		c->k21[i] = ROTL32(b->k2[i>>4] << 4 | b->k1[i&15], 11);
 		}
 	}
 
@@ -133,8 +136,8 @@ static word32 f(gost_ctx *c,word32 x)
 	{
 	x = c->k87[x>>24 & 255] | c->k65[x>>16 & 255]| 
 		c->k43[x>> 8 & 255] | c->k21[x & 255]; 
-	/* Rotate left 11 bits */ 
-	return x<<11 | x>>(32-11);
+
+	return x;
 	}
 /* Low-level encryption routine - encrypts one 64 bit block*/
 void gostcrypt(gost_ctx *c, const byte *in, byte *out)
